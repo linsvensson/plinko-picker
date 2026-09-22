@@ -39,11 +39,11 @@
       body {
         background: linear-gradient(
           -45deg,
-          #0f172a,
-          #31102f,
-          #1e1b4b,
-          #064e3b,
-          #450a0a
+          #04170f,
+          #08291a,
+          #0d3b24,
+          #06402b,
+          #123018
         );
         background-size: 400% 400%;
         animation: gradientBG 20s ease infinite;
@@ -80,12 +80,12 @@
       }
 
       .glass-panel {
-        background: rgba(15, 23, 42, 0.7);
+        background: rgba(5, 28, 18, 0.72);
         backdrop-filter: blur(16px);
-        border: 1px solid rgba(255, 255, 255, 0.15);
+        border: 1px solid rgba(134, 239, 172, 0.22);
         box-shadow:
-          0 25px 50px -12px rgba(0, 0, 0, 0.5),
-          inset 0 0 20px rgba(255, 255, 255, 0.05);
+          0 25px 50px -12px rgba(0, 0, 0, 0.55),
+          inset 0 0 20px rgba(74, 222, 128, 0.08);
       }
 
       /* Custom Scrollbar */
@@ -99,12 +99,12 @@
       }
 
       ::-webkit-scrollbar-thumb {
-        background: rgba(255, 255, 255, 0.2);
+        background: rgba(74, 222, 128, 0.35);
         border-radius: 4px;
       }
 
       ::-webkit-scrollbar-thumb:hover {
-        background: rgba(255, 255, 255, 0.4);
+        background: rgba(134, 239, 172, 0.6);
       }
 
       .floating-emoji {
@@ -149,14 +149,14 @@
       }
 
       .btn-glow {
-        box-shadow: 0 0 15px rgba(236, 72, 153, 0.4);
+        box-shadow: 0 0 15px rgba(74, 222, 128, 0.4);
         transition: all 0.2s;
       }
 
       .btn-glow:hover {
         box-shadow:
-          0 0 30px rgba(236, 72, 153, 0.8),
-          0 0 60px rgba(168, 85, 247, 0.6);
+          0 0 30px rgba(74, 222, 128, 0.8),
+          0 0 60px rgba(163, 230, 53, 0.6);
         animation: rumble 0.15s infinite;
       }
 
@@ -395,11 +395,19 @@
       class="glass-panel p-8 sm:p-8 p-4 rounded-2xl w-full max-w-3xl mx-4 z-10 transition-all duration-500 flex flex-col h-[100dvh] sm:h-[90vh]"
     >
       <div class="text-center mb-3 sm:mb-4 shrink-0">
-        <h1
-          class="text-3xl sm:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-500 mb-2 uppercase drop-shadow-lg"
-        >
-          PLINKO PICKER
-        </h1>
+        <div class="flex items-center justify-center gap-2 sm:gap-4 mb-2">
+          <span class="floating-emoji text-2xl sm:text-4xl leading-none"
+            >&#128056;</span
+          >
+          <h1
+            class="text-3xl sm:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-lime-300 via-green-400 to-emerald-500 uppercase drop-shadow-lg"
+          >
+            PLINKO PICKER
+          </h1>
+          <span class="floating-emoji text-2xl sm:text-4xl leading-none"
+            >&#128056;</span
+          >
+        </div>
         <div class="flex items-center justify-center gap-3 mb-1">
           <h2
             class="text-sm font-semibold text-gray-500 uppercase tracking-widest"
@@ -427,7 +435,7 @@
             href="https://pixabay.com/music/video-games-chiptune-but-461573/"
             target="_blank"
             rel="noopener"
-            class="text-indigo-400 hover:text-indigo-300 underline"
+            class="text-teal-400 hover:text-teal-300 underline"
             >Chiptune But</a
           >
           by inono777 (Pixabay)
@@ -443,8 +451,8 @@
         <div
           class="relative rounded-2xl p-6 max-w-xs w-full text-center shadow-2xl"
           style="
-            background: #1e1e2e;
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: #0c2318;
+            border: 1px solid rgba(134, 239, 172, 0.18);
           "
         >
           <button
@@ -489,7 +497,7 @@
           >
           <span
             id="active-class-name"
-            class="text-sm font-bold text-pink-300 truncate"
+            class="text-sm font-bold text-green-300 truncate"
             >Unsaved</span
           >
         </div>
@@ -508,7 +516,7 @@
           </button>
           <button
             id="btn-open-manager"
-            class="px-3 py-1.5 text-xs font-bold bg-indigo-700 hover:bg-indigo-600 rounded-lg transition-colors flex items-center gap-1.5"
+            class="px-3 py-1.5 text-xs font-bold bg-teal-700 hover:bg-teal-600 rounded-lg transition-colors flex items-center gap-1.5"
             title="Manage saved classes"
           >
             <svg class="w-3.5 h-3.5" viewBox="0 0 24 24">
@@ -535,7 +543,7 @@
             />
             <button
               id="btn-upload-csv"
-              class="btn-glow px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-sm font-bold shadow-lg transition-colors flex items-center"
+              class="btn-glow px-4 py-2 bg-teal-600 hover:bg-teal-500 rounded-lg text-sm font-bold shadow-lg transition-colors flex items-center"
             >
               <svg class="w-4 h-4 mr-2" viewBox="0 0 24 24">
                 <path d="M9 16h6v-6h4l-7-7-7 7h4v6zm-4 2h14v2H5v-2z" />
@@ -548,7 +556,7 @@
           </div>
           <textarea
             id="names-input"
-            class="w-full flex-1 bg-gray-900/80 text-white rounded-lg p-4 border border-gray-600 focus:border-pink-500 focus:ring-2 focus:ring-pink-500 transition-all outline-none resize-none font-mono text-sm shadow-inner"
+            class="w-full flex-1 bg-gray-900/80 text-white rounded-lg p-4 border border-gray-600 focus:border-green-500 focus:ring-2 focus:ring-green-500 transition-all outline-none resize-none font-mono text-sm shadow-inner"
             placeholder="Paste names here, one per line..."
           ></textarea>
         </div>
@@ -559,7 +567,7 @@
           <div class="flex-1">
             <label class="block text-sm font-medium text-gray-300 mb-2"
               >Race Duration:
-              <span id="time-display" class="font-bold text-pink-400 text-lg"
+              <span id="time-display" class="font-bold text-green-400 text-lg"
                 >20</span
               >
               Seconds</label
@@ -570,7 +578,7 @@
               min="10"
               max="120"
               value="20"
-              class="w-full h-3 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-pink-500 hover:accent-pink-400 transition-all"
+              class="w-full h-3 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-green-500 hover:accent-green-400 transition-all"
             />
           </div>
           <div class="flex space-x-2 pt-6">
@@ -613,7 +621,7 @@
                 checked
               />
               <div
-                class="w-11 h-6 bg-gray-700 rounded-full peer peer-checked:bg-pink-600 transition-colors"
+                class="w-11 h-6 bg-gray-700 rounded-full peer peer-checked:bg-green-600 transition-colors"
               ></div>
               <div
                 class="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform peer-checked:translate-x-5 shadow"
@@ -632,9 +640,9 @@
 
         <button
           id="btn-prepare"
-          class="btn-glow shrink-0 w-full py-5 bg-gradient-to-r from-pink-600 via-purple-600 to-indigo-600 font-black rounded-xl shadow-2xl text-xl uppercase tracking-widest border border-white/20"
+          class="btn-glow shrink-0 w-full py-5 bg-gradient-to-r from-lime-500 via-green-500 to-emerald-600 font-black rounded-xl shadow-2xl text-xl uppercase tracking-widest border border-white/20"
         >
-          🚀 Start the Race!
+          🐸 Start the Race!
         </button>
       </div>
     </div>
@@ -653,7 +661,7 @@
           class="flex items-center justify-between p-6 border-b border-white/10 shrink-0"
         >
           <h2 class="text-xl font-black text-white flex items-center gap-2">
-            <svg class="w-5 h-5 text-indigo-400" viewBox="0 0 24 24">
+            <svg class="w-5 h-5 text-teal-400" viewBox="0 0 24 24">
               <path
                 fill="currentColor"
                 d="M10 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2z"
@@ -694,7 +702,7 @@
             id="fm-search"
             type="text"
             placeholder="Search classes..."
-            class="w-full bg-gray-900/80 text-white rounded-lg px-4 py-2 border border-gray-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none text-sm"
+            class="w-full bg-gray-900/80 text-white rounded-lg px-4 py-2 border border-gray-600 focus:border-teal-500 focus:ring-1 focus:ring-teal-500 outline-none text-sm"
           />
         </div>
 
@@ -744,7 +752,7 @@
           id="save-name-input"
           type="text"
           placeholder="e.g. Period 3 - Math"
-          class="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white focus:border-pink-500 focus:ring-1 focus:ring-pink-500 outline-none mb-5 text-sm"
+          class="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white focus:border-green-500 focus:ring-1 focus:ring-green-500 outline-none mb-5 text-sm"
         />
         <div class="flex gap-3">
           <button
@@ -755,7 +763,7 @@
           </button>
           <button
             id="sn-confirm"
-            class="flex-1 py-2 rounded-lg bg-pink-600 hover:bg-pink-500 text-sm font-bold transition-colors"
+            class="flex-1 py-2 rounded-lg bg-green-600 hover:bg-green-500 text-sm font-bold transition-colors"
           >
             Save
           </button>
@@ -794,7 +802,7 @@
           </button>
           <button
             id="btn-confirm-dupes"
-            class="px-5 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 font-bold shadow-lg transition-colors"
+            class="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 font-bold shadow-lg transition-colors"
           >
             Confirm & Race
           </button>
@@ -813,11 +821,11 @@
         style="z-index: 30"
       >
         <div
-          class="glass-panel px-6 py-4 rounded-2xl border border-cyan-400/40 pointer-events-auto text-center"
-          style="background: rgba(6, 20, 40, 0.85)"
+          class="glass-panel px-6 py-4 rounded-2xl border border-lime-400/40 pointer-events-auto text-center"
+          style="background: rgba(5, 28, 18, 0.85)"
         >
           <div
-            class="text-xs text-cyan-400 font-bold uppercase tracking-widest mb-1"
+            class="text-xs text-lime-400 font-bold uppercase tracking-widest mb-1"
           >
             Test Mode — Biome <span id="test-biome-idx"></span> of
             <span id="test-biome-total"></span>
@@ -841,7 +849,7 @@
             </button>
             <button
               id="btn-test-next"
-              class="control-btn px-5 py-2 rounded-lg bg-cyan-700 hover:bg-cyan-600 font-bold text-sm transition-colors"
+              class="control-btn px-5 py-2 rounded-lg bg-lime-700 hover:bg-lime-600 font-bold text-sm transition-colors"
             >
               Next →
             </button>
@@ -856,7 +864,7 @@
       >
         <div class="flex justify-between items-start">
           <div
-            class="glass-panel px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg flex items-center space-x-3 sm:space-x-6 border-t-2 border-t-pink-500"
+            class="glass-panel px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg flex items-center space-x-3 sm:space-x-6 border-t-2 border-t-green-400"
           >
             <div>
               <div
@@ -930,7 +938,7 @@
         >
           <div
             id="progress-bar"
-            class="h-3 sm:h-4 rounded-full bg-gradient-to-r from-green-400 via-cyan-500 to-blue-500 w-0 transition-all duration-100 shadow-inner"
+            class="h-3 sm:h-4 rounded-full bg-gradient-to-r from-emerald-600 via-green-400 to-lime-300 w-0 transition-all duration-100 shadow-inner"
           ></div>
           <div
             id="flag-emoji"
@@ -969,7 +977,7 @@
             The Champion Is
           </h2>
           <h1
-            class="text-3xl sm:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-pink-400 to-cyan-500 mb-3 sm:mb-4 filter drop-shadow-[0_0_20px_rgba(236,72,153,0.8)]"
+            class="text-3xl sm:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-green-400 to-lime-500 mb-3 sm:mb-4 filter drop-shadow-[0_0_20px_rgba(74,222,128,0.8)]"
             id="winner-display-name"
           >
             John Doe
@@ -1062,8 +1070,8 @@
       let particles = [];
       let biomeZones = [];
       let currentBiomeObj = null;
-      let currentBgColor = "#0f172a"; // smoothly lerped background colour
-      let targetBgColor = "#0f172a";
+      let currentBgColor = "#062a1c"; // smoothly lerped background colour
+      let targetBgColor = "#062a1c";
       let cameraY = 0;
       let cameraXOffset = 0;
       let currentZoom = 1.0;
@@ -1136,6 +1144,15 @@
 
       // Particle cap — prevents lag spikes in dense biomes
       const MAX_PARTICLES = 160;
+
+      // Pond dwellers get handed out first, so a normal-sized class races as
+      // frogs and their neighbours; EMOJIS below covers rosters bigger than this.
+      const POND_EMOJIS = [
+        "🐸", "🐢", "🦎", "🐊", "🦆", "🦢", "🐟", "🐠", "🐡", "🦀",
+        "🦞", "🦐", "🐙", "🪰", "🦟", "🦦", "🦫", "🐍", "🦉", "🦇",
+        "🐝", "🦋", "🐌", "🐞", "🦗", "🕷️", "🐛", "🪲", "🐜", "🌸",
+        "🪷", "🍀", "🌿", "🍃", "🌱", "🪴", "🌾", "🦩", "🕊️", "🐣",
+      ];
 
       const EMOJIS = [
         "🐶",
@@ -1929,17 +1946,17 @@
             : "—";
 
           const row = document.createElement("div");
-          row.className = `flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer group ${isActive ? "bg-pink-900/25 border-pink-500/40" : "bg-white/5 border-white/8 hover:bg-white/10 hover:border-white/20"}`;
+          row.className = `flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer group ${isActive ? "bg-green-900/25 border-green-500/40" : "bg-white/5 border-white/8 hover:bg-white/10 hover:border-white/20"}`;
           row.innerHTML = `
           <div class="flex-1 min-w-0 cursor-pointer" data-load="${cls.id}">
             <div class="flex items-center gap-2">
-              ${isActive ? '<span class="text-xs bg-pink-600 text-white px-1.5 py-0.5 rounded font-bold shrink-0">ACTIVE</span>' : ""}
+              ${isActive ? '<span class="text-xs bg-green-600 text-white px-1.5 py-0.5 rounded font-bold shrink-0">ACTIVE</span>' : ""}
               <span class="font-bold text-white text-sm truncate fm-cls-name" data-id="${cls.id}">${cls.name}</span>
             </div>
             <div class="text-xs text-gray-400 mt-0.5">${nameCount} participant${nameCount !== 1 ? "s" : ""} · ${cls.duration || 20}s · Updated ${updated}</div>
           </div>
           <div class="flex gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button class="fm-btn-rename p-1.5 rounded-lg hover:bg-indigo-700/60 text-gray-400 hover:text-white transition-colors" data-id="${cls.id}" data-name="${cls.name.replace(/"/g, "&quot;")}" title="Rename">
+            <button class="fm-btn-rename p-1.5 rounded-lg hover:bg-teal-700/60 text-gray-400 hover:text-white transition-colors" data-id="${cls.id}" data-name="${cls.name.replace(/"/g, "&quot;")}" title="Rename">
               <svg class="w-3.5 h-3.5 pointer-events-none" viewBox="0 0 24 24"><path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
             </button>
             <button class="fm-btn-export p-1.5 rounded-lg hover:bg-gray-700 text-gray-400 hover:text-white transition-colors" data-id="${cls.id}" title="Export this class">
@@ -2258,7 +2275,7 @@
             input.type = "text";
             input.value = `${dupe} ${idxNum + 1}`;
             input.className =
-              "flex-1 bg-gray-900 border border-gray-600 rounded p-2 text-white text-sm focus:border-purple-500 outline-none";
+              "flex-1 bg-gray-900 border border-gray-600 rounded p-2 text-white text-sm focus:border-emerald-500 outline-none";
             input.dataset.index = index;
 
             const delBtn = document.createElement("button");
@@ -2351,8 +2368,8 @@
         particles = [];
         biomeZones = [];
         currentBiomeObj = null;
-        currentBgColor = "#0f172a";
-        targetBgColor = "#0f172a";
+        currentBgColor = "#062a1c";
+        targetBgColor = "#062a1c";
         characterTrails = new Map();
         activeHazards = [];
         currentWeather = "clear";
@@ -5760,7 +5777,7 @@
               friction: 0.8,
               restitution: 0.1,
               label: "intro-platform-seg",
-              renderColor: "#a855f7",
+              renderColor: "#4ade80",
             },
           );
           seg.segIndex = si;
@@ -5768,6 +5785,11 @@
           Matter.World.add(world, seg);
           introPlatformBodies.push(seg);
         }
+
+        // Shuffle each pool separately so pond creatures are exhausted before
+        // the generic animals appear, and nobody shares an emoji until both run out.
+        const shuf = (a) => [...a].sort(() => Math.random() - 0.5);
+        const emojiPool = [...shuf(POND_EMOJIS), ...shuf(EMOJIS)];
 
         let shuffledNames = [...finalNames].sort(() => Math.random() - 0.5);
         shuffledNames.forEach((name, i) => {
@@ -5780,8 +5802,8 @@
             frictionAir: 0.015,
             label: "character",
           });
-          let emoji = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
-          let color = `hsl(${Math.random() * 360}, 70%, 60%)`;
+          let emoji = emojiPool[i % emojiPool.length];
+          let color = `hsl(${75 + Math.random() * 90}, ${58 + Math.random() * 24}%, ${48 + Math.random() * 22}%)`;
           characters.push({
             body,
             name,
@@ -5837,8 +5859,8 @@
             });
           }
           // Particle burst
-          createParticles(cx, cy, "#a855f7", 8);
-          createParticles(cx, cy, "#e879f9", 5);
+          createParticles(cx, cy, "#4ade80", 8);
+          createParticles(cx, cy, "#bef264", 5);
         });
         introPlatformBodies = [];
         SFX_PLAY(() => SFX.playNoise(0.5, 0.4));
@@ -6609,7 +6631,7 @@
 
         // ── Gradient fade at biome borders for smooth transitions ──
         const fadeH = 220; // pixels of fade on each edge
-        const bgCol = (BIOMES[biomeType] && BIOMES[biomeType].bg) || "#0f172a";
+        const bgCol = (BIOMES[biomeType] && BIOMES[biomeType].bg) || "#062a1c";
         // Parse the hex bg color to rgba for gradients
         const hexToRgb = (hex) => {
           const r = parseInt(hex.slice(1, 3), 16);
@@ -9165,7 +9187,7 @@
           currentBiomeObj = newBiome.obj;
           targetBgColor = currentBiomeObj.bg;
         } else if (!newBiome && !currentBiomeObj) {
-          targetBgColor = "#0f172a";
+          targetBgColor = "#062a1c";
         }
         // Lerp background colour smoothly (parse hex, interpolate, apply)
         if (currentBgColor !== targetBgColor) {
@@ -9745,10 +9767,10 @@
               sw / 2,
               sh / 2,
             );
-            pg.addColorStop(0, "#e879f9");
-            pg.addColorStop(0.3, "#a855f7");
-            pg.addColorStop(0.6, "#7c3aed");
-            pg.addColorStop(1, "#4c1d95");
+            pg.addColorStop(0, "#bef264");
+            pg.addColorStop(0.3, "#4ade80");
+            pg.addColorStop(0.6, "#16a34a");
+            pg.addColorStop(1, "#14532d");
             ctx.fillStyle = pg;
             ctx.beginPath();
             ctx.roundRect(-sw / 2, -sh / 2, sw, sh, 3);
@@ -9780,8 +9802,8 @@
           ctx.textBaseline = "bottom";
           ctx.font = "bold 36px 'Segoe UI', Arial";
           ctx.shadowBlur = 20;
-          ctx.shadowColor = "#a855f7";
-          ctx.fillStyle = "#f0abfc";
+          ctx.shadowColor = "#4ade80";
+          ctx.fillStyle = "#d9f99d";
           ctx.fillText("GET READY!", VIEW_WIDTH / 2, platCY - 55);
           ctx.restore();
         }
@@ -11122,8 +11144,8 @@
         introPhase = "done";
         characterTrails = new Map();
         currentBiomeObj = null;
-        currentBgColor = "#0f172a";
-        targetBgColor = "#0f172a";
+        currentBgColor = "#062a1c";
+        targetBgColor = "#062a1c";
         worldRotation = 0;
         flipActive = false;
         flipCooldown = false;
