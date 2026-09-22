@@ -23,6 +23,7 @@ Whether you need to call on a student, pick a winner for a game, or just want to
 | ⏱️ Customizable time limits (10s to 120s) | ✅ | ✅ |
 | 🎵 Built-in music and sound effects | ✅ | ✅ |
 | 🧑‍🎓 Class management (.csv, paste, auto-format) | ✅ | ✅ |
+| ⚖️ Weighted odds per person | ✅ | ✅ |
 | 💾 Multi-class save & manage | ✅ | ✅ |
 | 🌈 Dynamic environments | ✅ | ✅ |
 
@@ -32,6 +33,19 @@ Whether you need to call on a student, pick a winner for a game, or just want to
 
 ### 🧑‍🎓 Step 1 — Add Students
 Simply open the app and paste your student list, type it manually, or upload a `.csv` or `.txt` file. The app automatically reformats "Last, First" into "First Last" and resolves duplicates gracefully.
+
+---
+
+### ⚖️ Step 1b — Weight the Odds (Optional)
+Add a multiplier after a name to change how likely that person is to win:
+
+```
+Alice
+Bob x0.5     ← half as likely
+Cleo x2      ← twice as likely
+```
+
+Leave a name bare for normal odds. Weights are saved with the class and survive a `.csv` round trip. The effect is a nudge, not a guarantee — a weighted-down student can still win, which is rather the point.
 
 ---
 
