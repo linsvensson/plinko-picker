@@ -2383,6 +2383,20 @@
               alert("Not enough people left!");
               return;
             }
+
+            // Write the resolved roster back, so the textarea names the people
+            // who are actually racing. Without this the winner is "Emma 1"
+            // while the textarea still says "Emma" twice: "Remove Winner After
+            // Race" matches nothing and silently does nothing, and the same
+            // duplicates prompt again every race. Weights are re-attached in
+            // canonical form. This runs only once the race is going ahead, so
+            // deleting too many people leaves the roster intact to fix.
+            const namesInput = document.getElementById("names-input");
+            if (namesInput) {
+              namesInput.value = finalNames
+                .map((n, i) => formatRosterLine(n, finalWeights[i]))
+                .join("\n");
+            }
             _playMusicNow(); // must be in gesture call stack
             startGame();
           }, 300);
