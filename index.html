@@ -2201,9 +2201,12 @@
       // This is the one lever that is both decisive and invisible: respawns fire
       // 2-6 times per ball per race, always off-screen, and never for the leader.
       const RESPAWN_WEIGHT_BIAS = 0.3;
-      // Trailing "x<number>" / "×<number>". Requires digits, so a name that
-      // merely ends in "X" (e.g. "Malcolm X") is left alone.
-      const WEIGHT_RE = /\s*[x×]\s*([0-9]*\.?[0-9]+)\s*$/i;
+      // Trailing "x<number>" / "×<number>". The x must start a word: without
+      // that boundary this also matched the x inside a name, so "Alex 2" parsed
+      // as "Ale" at weight 2 — and "Name N" is exactly how the duplicate
+      // resolver below tells two students apart. Digits are required too, so
+      // "Malcolm X" keeps its surname.
+      const WEIGHT_RE = /(?:^|\s)[x×]\s*([0-9]*\.?[0-9]+)\s*$/i;
 
       // Split a roster line into its name part and its weight.
       function splitWeight(line) {
