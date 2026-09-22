@@ -10690,7 +10690,9 @@
       let winnerEndTime = 0;
 
       function playWinSFX() {
-        if (!audioCtx) return;
+        // Must honour the SFX mute like every SFX.* method does — the victory
+        // fanfare builds its oscillators inline rather than going through SFX.
+        if (isSfxMuted || !audioCtx) return;
         [
           [0, 110, 0.18],
           [80, 220, 0.22],
