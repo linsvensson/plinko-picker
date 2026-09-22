@@ -1081,6 +1081,10 @@
       let levelObstacles = [];
       let suddenDeath = false;
       let sprintStartTime = 0;
+      // Final sprint length in REAL seconds. Driven by wall clock rather than a
+      // frame count so the finish takes the same time on a slow classroom laptop
+      // as it does at 60fps.
+      const SPRINT_SECS = 3.0;
       let sprintLaunched = false;
       let _finishLineCrossed = false;
       let frameCount = 0;
@@ -2438,6 +2442,36 @@
         canvas.height = window.innerHeight;
         VIEW_HEIGHT = window.innerHeight;
       }
+
+      // ── Tab-switch pause ──────────────────────────────────
+      // The countdown runs on Date.now() but the balls only move when frames
+      // render, and a hidden tab stops requestAnimationFrame entirely. Without
+      // this, switching tabs mid-race burns the clock while nothing moves: you
+      // come back to an expired timer and the balls still at the top.
+      // Freeze the physics and push every wall-clock deadline forward instead.
+      let _hiddenAt = 0;
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden) {
+          if (_hiddenAt) return;
+          _hiddenAt = Date.now();
+          if (runner) runner.enabled = false;
+        } else if (_hiddenAt) {
+          const hiddenAt = _hiddenAt;
+          const now = Date.now();
+          _hiddenAt = 0;
+          // Credit only the stretch a deadline was actually frozen for. A
+          // timestamp created mid-pause must not be pushed the full duration,
+          // or it lands in the future and rewinds whatever it drives.
+          const thaw = (v) =>
+            v ? v + Math.max(0, now - Math.max(hiddenAt, v)) : v;
+          startTime = thaw(startTime);
+          sprintStartTime = thaw(sprintStartTime);
+          introBreakTime = thaw(introBreakTime);
+          flipStartTime = thaw(flipStartTime);
+          winnerEndTime = thaw(winnerEndTime);
+          if (runner) runner.enabled = true;
+        }
+      });
 
       function initPhysics() {
         engine = Matter.Engine.create({
@@ -9154,6 +9188,13 @@
 
       function renderLoop() {
         if (!gameActive) return;
+        // Hidden tab: freeze completely. Without this the countdown keeps
+        // draining on the throttled frames a background tab still gets, and
+        // sudden death can fire while the balls are not moving.
+        if (_hiddenAt) {
+          animationFrame = requestAnimationFrame(renderLoop);
+          return;
+        }
         frameCount++;
         gameTime += 0.016;
 
@@ -9458,25 +9499,37 @@
           _finishLineCrossed = false;
           // Turn off gravity so balls travel at exactly the velocity we set
           engine.gravity.y = 0;
-          const SPRINT_SECS = 3.0;
-          const SPRINT_FRAMES = SPRINT_SECS * 60;
           const leaderDist = Math.max(
             300,
             finishY - physicsLeader.body.position.y,
           );
-          const sprintV = leaderDist / SPRINT_FRAMES; // constant px/frame for leader
+          // Every ball covers the SAME distance, so the gaps they arrive with are
+          // the gaps they finish with. Per-ball speed differences would show up as
+          // smooth linear drift and read as rigged; weighting lives in
+          // respawnCharacter() instead, where it is off-screen.
           characters.forEach((c) => {
-            Matter.Body.setVelocity(c.body, { x: 0, y: sprintV });
-            c.sprintVy = sprintV;
+            c.sprintDist = leaderDist;
+            Matter.Body.setVelocity(c.body, { x: 0, y: 0 });
           });
           sprintLaunched = true;
         }
 
-        // Each frame during sprint: lock every ball to exactly sprintVy
+        // Each frame during sprint: drive position from elapsed REAL time.
+        // Velocity would advance one fixed physics step per rendered frame, so a
+        // dropped frame rate stretched the "3 second" sprint (6s at 30fps, ~31s
+        // at 6fps). Interpolating on the clock keeps it 3s at any frame rate.
         if (suddenDeath && sprintLaunched) {
+          const t = Math.max(
+            0,
+            Math.min(1, (Date.now() - sprintStartTime) / (SPRINT_SECS * 1000)),
+          );
           characters.forEach((c) => {
-            if (!c.sprintVy || finishY - c.body.position.y <= 0) return;
-            Matter.Body.setVelocity(c.body, { x: 0, y: c.sprintVy });
+            if (c.sprintDist === undefined) return;
+            Matter.Body.setVelocity(c.body, { x: 0, y: 0 });
+            Matter.Body.setPosition(c.body, {
+              x: c.body.position.x,
+              y: c.sprintStartY + c.sprintDist * t,
+            });
           });
         }
 
