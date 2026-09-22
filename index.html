@@ -552,14 +552,15 @@
             </button>
             <p class="text-xs text-gray-400 ml-1">
               Auto-reformats "Last, First" &middot; add
-              <span class="font-mono text-green-400">x0.5</span> after a name to
-              weight their odds
+              <span class="font-mono text-green-400">@twitch</span> for an avatar
+              or <span class="font-mono text-green-400">x0.5</span> to weight the
+              odds
             </p>
           </div>
           <textarea
             id="names-input"
             class="w-full flex-1 bg-gray-900/80 text-white rounded-lg p-4 border border-gray-600 focus:border-green-500 focus:ring-2 focus:ring-green-500 transition-all outline-none resize-none font-mono text-sm shadow-inner"
-            placeholder="Paste names here, one per line...&#10;&#10;Optional: add a weight to change someone's odds&#10;  Alice&#10;  Bob x0.5   (half as likely to win)&#10;  Cleo x2    (twice as likely)"
+            placeholder="Paste names here, one per line...&#10;&#10;Optional extras:&#10;  Alice&#10;  Bob @bobtv           (races as their Twitch avatar)&#10;  Cleo x2              (twice as likely to win)&#10;  Dara @daratv x0.5    (both)"
           ></textarea>
         </div>
 
@@ -1065,6 +1066,7 @@
       let hasInteracted = false;
       let finalNames = [];
       let finalWeights = []; // index-aligned with finalNames
+      let finalTwitch = []; // index-aligned with finalNames ("" = no handle)
       let gameActive = false;
 
       // Physics & Render
@@ -2224,6 +2226,10 @@
       // resolver below tells two students apart. Digits are required too, so
       // "Malcolm X" keeps its surname.
       const WEIGHT_RE = /(?:^|\s)[x×]\s*([0-9]*\.?[0-9]+)\s*$/i;
+      // Trailing "@twitchname", same word-boundary rule as the weight suffix so
+      // an email-ish or mid-word @ is left alone. Twitch logins are 1-25 of
+      // [A-Za-z0-9_]. It sits before the weight: "Alice @alicetv x0.5".
+      const TWITCH_RE = /(?:^|\s)@([A-Za-z0-9_]{1,25})\s*$/;
 
       // Split a roster line into its name part and its weight.
       function splitWeight(line) {
@@ -2239,24 +2245,43 @@
       }
 
       // Canonical text form of an entry — what gets written back to the textarea.
-      function formatRosterLine(name, weight) {
-        return weight === 1 ? name : `${name} x${weight}`;
+      // Weight stays last so parsing (which strips from the end) round-trips.
+      function formatRosterLine(name, weight, twitch) {
+        return (
+          name +
+          (twitch ? ` @${twitch}` : "") +
+          (weight === 1 ? "" : ` x${weight}`)
+        );
       }
 
-      // Parse one raw line into { name, weight, line }, or null if it's blank.
+      // Parse one raw line into { name, weight, twitch, line }, or null if blank.
       function parseRosterLine(raw) {
         let line = raw.replace(/["']/g, "").trim();
         if (!line || line.toLowerCase() === "null") return null;
         const { base, weight } = splitWeight(line);
-        let name = base;
+        let rest = base;
+        let twitch = "";
+        const tm = rest.match(TWITCH_RE);
+        if (tm) {
+          twitch = tm[1];
+          rest = rest.slice(0, tm.index).trim();
+        }
+        let name = rest;
         if (name.includes(",")) {
           const parts = name.split(",");
           const last = parts[0].trim();
           const first = parts[1] ? parts[1].trim() : "";
           name = first && last ? `${first} ${last}` : first || last;
         }
+        // A line that is nothing but a handle races under that handle.
+        if (!name && twitch) name = twitch;
         if (!name) return null;
-        return { name, weight, line: formatRosterLine(name, weight) };
+        return {
+          name,
+          weight,
+          twitch,
+          line: formatRosterLine(name, weight, twitch),
+        };
       }
 
       function parseRosterLines(rawText) {
@@ -2266,7 +2291,100 @@
           .filter((e) => e !== null);
       }
 
-      // Canonical text lines — used by the CSV importer so weights survive a round trip.
+      // ── Twitch avatars ────────────────────────────────────
+      // A roster line may carry a Twitch handle ("Alice @alicetv"); that racer
+      // then shows the channel's profile picture instead of a random emoji.
+      // Twitch's own API needs a client secret, which a static page cannot hold,
+      // so handles are resolved through decapi.me. Its reply is untrusted text:
+      // only a genuine Twitch CDN URL is ever loaded, so the service cannot
+      // point us at an arbitrary host.
+      const TWITCH_CDN_RE = /^https:\/\/static-cdn\.jtvnw\.net\/[\w\-./]+$/;
+      const AVATAR_CACHE_KEY = "plinkoPicker_avatars";
+      const AVATAR_TTL_MS = 7 * 24 * 60 * 60 * 1000; // avatars change rarely
+
+      // One shared in-memory copy. Re-reading localStorage per lookup meant six
+      // concurrent workers each mutated their own snapshot and the last write
+      // won, silently dropping the others — so half the handles re-fetched on
+      // every race despite "being cached".
+      let _avatarCache = null;
+      function avatarCache() {
+        if (!_avatarCache) {
+          try {
+            _avatarCache = JSON.parse(
+              localStorage.getItem(AVATAR_CACHE_KEY) || "{}",
+            );
+          } catch (e) {
+            _avatarCache = {};
+          }
+        }
+        return _avatarCache;
+      }
+      function saveAvatarCache() {
+        try {
+          localStorage.setItem(
+            AVATAR_CACHE_KEY,
+            JSON.stringify(_avatarCache || {}),
+          );
+        } catch (e) {}
+      }
+
+      // Returns a Twitch CDN url, or null if the channel does not exist or the
+      // lookup failed. A cached null is deliberate: it stops a typo'd handle
+      // hitting the network before every single race.
+      async function resolveTwitchAvatar(login) {
+        const key = String(login).toLowerCase();
+        const cache = avatarCache();
+        const hit = cache[key];
+        if (hit && Date.now() - hit.at < AVATAR_TTL_MS) return hit.url;
+        let url = null;
+        try {
+          const res = await fetch(
+            "https://decapi.me/twitch/avatar/" + encodeURIComponent(key),
+          );
+          const text = (await res.text()).trim();
+          // Unknown channels come back as "User not found: <name>", not a url.
+          if (TWITCH_CDN_RE.test(text)) url = text;
+        } catch (e) {
+          // Offline, blocked, or rate limited — the emoji stays.
+        }
+        cache[key] = { url, at: Date.now() };
+        saveAvatarCache();
+        return url;
+      }
+
+      function loadAvatarImage(url) {
+        return new Promise((resolve) => {
+          const img = new Image();
+          // No crossOrigin on purpose: nothing reads pixels back, and asking for
+          // CORS would fail the load outright if the CDN declined it.
+          img.onload = () => resolve(img);
+          img.onerror = () => resolve(null);
+          img.src = url;
+        });
+      }
+
+      // Fills in c.avatar in the background. Racers show their emoji until an
+      // avatar arrives, and keep it for good if the handle is bad.
+      async function attachAvatars(list, concurrency = 6) {
+        const queue = list.filter((c) => c.twitch);
+        if (!queue.length) return;
+        let next = 0;
+        const worker = async () => {
+          while (next < queue.length) {
+            const c = queue[next++];
+            const url = await resolveTwitchAvatar(c.twitch);
+            if (!url) continue; // unknown handle — the emoji stays
+            const img = await loadAvatarImage(url);
+            if (img) c.avatar = img;
+          }
+        };
+        await Promise.all(
+          Array.from({ length: Math.min(concurrency, queue.length) }, worker),
+        );
+      }
+
+      // Canonical text lines — used by the CSV importer so weights and
+      // handles survive a round trip.
       function cleanNamesList(rawText) {
         return parseRosterLines(rawText).map((e) => e.line);
       }
@@ -2290,6 +2408,7 @@
         const entries = parseRosterLines(rawText);
         const parsedNames = entries.map((e) => e.name);
         const parsedWeights = entries.map((e) => e.weight);
+        const parsedTwitch = entries.map((e) => e.twitch);
 
         if (parsedNames.length < 2) {
           alert("Need at least 2 people to race!");
@@ -2301,16 +2420,27 @@
         const duplicates = Object.keys(counts).filter((k) => counts[k] > 1);
 
         if (duplicates.length > 0)
-          showDuplicateModal(parsedNames, duplicates, parsedWeights);
+          showDuplicateModal(
+            parsedNames,
+            duplicates,
+            parsedWeights,
+            parsedTwitch,
+          );
         else {
           finalNames = parsedNames;
           finalWeights = parsedWeights;
+          finalTwitch = parsedTwitch;
           _playMusicNow(); // must be in gesture call stack
           startGame();
         }
       });
 
-      function showDuplicateModal(allNames, duplicateKeys, allWeights = []) {
+      function showDuplicateModal(
+        allNames,
+        duplicateKeys,
+        allWeights = [],
+        allTwitch = [],
+      ) {
         const listContainer = document.getElementById("duplicate-list");
         listContainer.innerHTML = "";
         let currentNames = [...allNames];
@@ -2375,6 +2505,9 @@
           finalWeights = currentNames
             .map((_, i) => (allWeights[i] === undefined ? 1 : allWeights[i]))
             .filter((_, i) => !toRemove.includes(i));
+          finalTwitch = currentNames
+            .map((_, i) => allTwitch[i] || "")
+            .filter((_, i) => !toRemove.includes(i));
           modal.classList.add("opacity-0");
           modal.children[0].classList.add("scale-95");
           setTimeout(() => {
@@ -2394,7 +2527,9 @@
             const namesInput = document.getElementById("names-input");
             if (namesInput) {
               namesInput.value = finalNames
-                .map((n, i) => formatRosterLine(n, finalWeights[i]))
+                .map((n, i) =>
+                  formatRosterLine(n, finalWeights[i], finalTwitch[i]),
+                )
                 .join("\n");
             }
             _playMusicNow(); // must be in gesture call stack
@@ -2420,6 +2555,7 @@
         if (testMode) {
           finalNames = ["Ball A", "Ball B", "Ball C"];
           finalWeights = [1, 1, 1];
+          finalTwitch = ["", "", ""];
           targetDuration = 120;
         } else {
           targetDuration = parseInt(UI.slider.value);
@@ -5899,9 +6035,10 @@
           .map((name, i) => ({
             name,
             weight: finalWeights[i] === undefined ? 1 : finalWeights[i],
+            twitch: finalTwitch[i] || "",
           }))
           .sort(() => Math.random() - 0.5);
-        shuffled.forEach(({ name, weight }, i) => {
+        shuffled.forEach(({ name, weight, twitch }, i) => {
           const x = startX + i * spacing;
           const y = platformY;
           let body = Matter.Bodies.circle(x, y, ballR, {
@@ -5923,6 +6060,8 @@
             body,
             name,
             weight,
+            twitch,
+            avatar: null,
             emoji,
             color,
             radius: ballR,
@@ -5931,6 +6070,11 @@
           });
           Matter.World.add(world, body);
         });
+
+        // Deliberately not awaited: the race starts now and avatars swap in as
+        // they arrive. Catch here so a network failure cannot surface as an
+        // unhandled rejection.
+        attachAvatars(characters).catch(() => {});
 
         // Break the platform after 2.2 seconds
         setTimeout(() => {
@@ -9160,10 +9304,21 @@
         ctx.stroke();
         ctx.restore();
 
-        // Emoji (upright, sized to ball)
-        ctx.font = `${c.radius * 1.2}px Arial`;
-        ctx.textAlign = "center";
-        ctx.fillText(c.emoji, pos.x, pos.y + c.radius * 0.38);
+        // Twitch avatar once it has loaded, otherwise the emoji
+        if (c.avatar) {
+          const r = c.radius - 2;
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(pos.x, pos.y, r, 0, Math.PI * 2);
+          ctx.clip();
+          ctx.drawImage(c.avatar, pos.x - r, pos.y - r, r * 2, r * 2);
+          ctx.restore();
+        } else {
+          // Emoji (upright, sized to ball)
+          ctx.font = `${c.radius * 1.2}px Arial`;
+          ctx.textAlign = "center";
+          ctx.fillText(c.emoji, pos.x, pos.y + c.radius * 0.38);
+        }
 
         // Name label
         ctx.font = "bold 13px 'Segoe UI'";
@@ -11118,7 +11273,19 @@
         } else {
           // Show modal + confetti
           engine.timing.timeScale = 1.0;
-          document.getElementById("winner-emoji").innerText = winnerObj.emoji;
+          const winnerFace = document.getElementById("winner-emoji");
+          winnerFace.innerHTML = "";
+          if (winnerObj.avatar) {
+            const img = document.createElement("img");
+            img.src = winnerObj.avatar.src;
+            img.alt = "";
+            // 1em keeps it the size the emoji glyph would have been
+            img.style.cssText =
+              "width:1em;height:1em;border-radius:9999px;object-fit:cover;display:inline-block";
+            winnerFace.appendChild(img);
+          } else {
+            winnerFace.innerText = winnerObj.emoji;
+          }
           document.getElementById("winner-display-name").innerText =
             winnerObj.name;
 
@@ -11144,13 +11311,17 @@
               const winnerBadge = isWinner
                 ? '<span class="text-yellow-400 text-xs font-bold shrink-0">WINNER<\/span>'
                 : "";
+              // c.avatar.src only ever holds a url that matched TWITCH_CDN_RE
+              const faceHtml = c.avatar
+                ? '<img src="' +
+                  c.avatar.src +
+                  '" alt="" class="w-6 h-6 rounded-full object-cover shrink-0">'
+                : '<span class="text-xl shrink-0">' + c.emoji + "<\/span>";
               row.innerHTML =
                 '<span class="text-lg shrink-0">' +
                 medalHtml +
                 "<\/span>" +
-                '<span class="text-xl shrink-0">' +
-                c.emoji +
-                "<\/span>" +
+                faceHtml +
                 '<span class="text-sm font-bold text-white truncate flex-1">' +
                 c.name +
                 "<\/span>" +
