@@ -1153,6 +1153,11 @@
 
       // Particle cap — prevents lag spikes in dense biomes
       const MAX_PARTICLES = 160;
+      // Past this many racers the per-ball flourishes cost far more than they
+      // add: name labels overlap into an unreadable smear and trails vanish
+      // behind the crowd. Above it, each ball drops to a flat fill with no
+      // trail and no label (the leader keeps theirs, and the HUD names them).
+      const CROWD_THRESHOLD = 40;
 
       // Pond dwellers get handed out first, so a normal-sized class races as
       // frogs and their neighbours; EMOJIS below covers rosters bigger than this.
@@ -5993,13 +5998,26 @@
 
         const n = finalNames.length;
         const ballR = 18;
-        const spacing = Math.min(60, (VIEW_WIDTH - 160) / Math.max(1, n));
-        const totalW = spacing * (n - 1);
+        // Spacing used to be (VIEW_WIDTH - 160) / n with no floor, so past ~29
+        // racers the balls spawned inside one another — 10x overlapped at 300,
+        // leaving the solver thousands of simultaneous contacts to untangle the
+        // instant the platform broke. Wrapping into rows means nothing starts
+        // interpenetrated. The pile still settles and compresses under gravity
+        // during the 2.2s hold, so contacts do not reach zero, but resting
+        // contacts are far cheaper than deep overlap: measured 576 -> 269 at
+        // 150 racers and 2527 -> 842 at 300.
+        const laneW = VIEW_WIDTH - 160;
+        const perRow = Math.max(1, Math.min(n, Math.floor(laneW / (ballR * 2 + 4))));
+        const spacing = Math.min(60, laneW / perRow);
+        const rowH = ballR * 2 + 4;
+        const totalW = spacing * (perRow - 1);
         const startX = VIEW_WIDTH / 2 - totalW / 2;
         const platformY = 200; // well within the starting view
 
-        // Build intro platform as a series of chunked segments (so it can shatter)
-        const segCount = Math.max(n, 8);
+        // Build intro platform as a series of chunked segments (so it can
+        // shatter). Capped: this was one segment per racer, so 300 racers meant
+        // 300 static bodies bursting into ~900 rendered chunks at once.
+        const segCount = Math.max(8, Math.min(perRow, 24));
         const platTotalW = totalW + 120;
         const platLeft = VIEW_WIDTH / 2 - platTotalW / 2;
         const segW = platTotalW / segCount;
@@ -6039,8 +6057,9 @@
           }))
           .sort(() => Math.random() - 0.5);
         shuffled.forEach(({ name, weight, twitch }, i) => {
-          const x = startX + i * spacing;
-          const y = platformY;
+          // Rows stack upward from the platform; the pile settles onto it.
+          const x = startX + (i % perRow) * spacing;
+          const y = platformY - Math.floor(i / perRow) * rowH;
           let body = Matter.Bodies.circle(x, y, ballR, {
             restitution: 0.5,
             friction: 0.3,
@@ -6055,7 +6074,8 @@
             label: "character",
           });
           let emoji = emojiPool[i % emojiPool.length];
-          let color = `hsl(${75 + Math.random() * 90}, ${58 + Math.random() * 24}%, ${48 + Math.random() * 22}%)`;
+          const hue = 75 + Math.random() * 90;
+          let color = `hsl(${hue}, ${58 + Math.random() * 24}%, ${48 + Math.random() * 22}%)`;
           characters.push({
             body,
             name,
@@ -6064,6 +6084,7 @@
             avatar: null,
             emoji,
             color,
+            hue,
             radius: ballR,
             bubbleTimer: 0,
             inBubble: false,
@@ -9244,20 +9265,26 @@
         let pos = c.body.position;
         let t = gameTime;
 
-        // Trail
-        if (!characterTrails.has(c.name)) characterTrails.set(c.name, []);
-        let trail = characterTrails.get(c.name);
-        trail.push({ x: pos.x, y: pos.y });
-        if (trail.length > 6) trail.shift();
-        let hueMatch = c.color.match(/hsl\((\d+\.?\d*)/);
-        let charHue = hueMatch ? parseFloat(hueMatch[1]) : 200;
-        for (let ti = 0; ti < trail.length - 1; ti++) {
-          let alpha = (ti / trail.length) * 0.35;
-          let size = c.radius * (ti / trail.length) * 0.75;
-          ctx.fillStyle = `hsla(${charHue}, 70%, 60%, ${alpha})`;
-          ctx.beginPath();
-          ctx.arc(trail[ti].x, trail[ti].y, size, 0, Math.PI * 2);
-          ctx.fill();
+        const crowded = characters.length > CROWD_THRESHOLD;
+        // Hue is cached at spawn; this used to re-run a regex over the colour
+        // string for every ball on every frame.
+        let charHue = c.hue !== undefined ? c.hue : 200;
+
+        // Trail — five extra filled arcs per ball, so it is the first thing to
+        // go when the field is crowded.
+        if (!crowded) {
+          if (!characterTrails.has(c.name)) characterTrails.set(c.name, []);
+          let trail = characterTrails.get(c.name);
+          trail.push({ x: pos.x, y: pos.y });
+          if (trail.length > 6) trail.shift();
+          for (let ti = 0; ti < trail.length - 1; ti++) {
+            let alpha = (ti / trail.length) * 0.35;
+            let size = c.radius * (ti / trail.length) * 0.75;
+            ctx.fillStyle = `hsla(${charHue}, 70%, 60%, ${alpha})`;
+            ctx.beginPath();
+            ctx.arc(trail[ti].x, trail[ti].y, size, 0, Math.PI * 2);
+            ctx.fill();
+          }
         }
 
         // Leader glow halo
@@ -9279,23 +9306,29 @@
           ctx.fill();
         }
 
-        // Body with gradient
+        // Body. The shaded look needs a gradient object built per ball per
+        // frame, which is the single most expensive fill here; in a crowd the
+        // balls are too small for the shading to read, so use a flat colour.
         ctx.save();
         ctx.translate(pos.x, pos.y);
         ctx.rotate(c.body.angle);
-        let bG = ctx.createRadialGradient(
-          -c.radius * 0.32,
-          -c.radius * 0.32,
-          0,
-          0,
-          0,
-          c.radius,
-        );
-        bG.addColorStop(0, `hsl(${charHue}, 80%, 82%)`);
-        bG.addColorStop(1, `hsl(${charHue}, 70%, 42%)`);
+        if (crowded) {
+          ctx.fillStyle = `hsl(${charHue}, 72%, 58%)`;
+        } else {
+          let bG = ctx.createRadialGradient(
+            -c.radius * 0.32,
+            -c.radius * 0.32,
+            0,
+            0,
+            0,
+            c.radius,
+          );
+          bG.addColorStop(0, `hsl(${charHue}, 80%, 82%)`);
+          bG.addColorStop(1, `hsl(${charHue}, 70%, 42%)`);
+          ctx.fillStyle = bG;
+        }
         ctx.beginPath();
         ctx.arc(0, 0, c.radius, 0, Math.PI * 2);
-        ctx.fillStyle = bG;
         ctx.fill();
         ctx.strokeStyle = isLeader
           ? "rgba(255,215,0,0.9)"
@@ -9320,13 +9353,16 @@
           ctx.fillText(c.emoji, pos.x, pos.y + c.radius * 0.38);
         }
 
-        // Name label
-        ctx.font = "bold 13px 'Segoe UI'";
-        ctx.strokeStyle = "rgba(0,0,0,0.9)";
-        ctx.lineWidth = 3;
-        ctx.strokeText(c.name, pos.x, pos.y - c.radius - 7);
-        ctx.fillStyle = "#ffffff";
-        ctx.fillText(c.name, pos.x, pos.y - c.radius - 7);
+        // Name label — two text ops per ball. In a crowd they overlap into an
+        // unreadable smear anyway, so only the leader keeps one.
+        if (!crowded || isLeader) {
+          ctx.font = "bold 13px 'Segoe UI'";
+          ctx.strokeStyle = "rgba(0,0,0,0.9)";
+          ctx.lineWidth = 3;
+          ctx.strokeText(c.name, pos.x, pos.y - c.radius - 7);
+          ctx.fillStyle = "#ffffff";
+          ctx.fillText(c.name, pos.x, pos.y - c.radius - 7);
+        }
 
         if (isLeader) {
           ctx.font = "21px Arial";
