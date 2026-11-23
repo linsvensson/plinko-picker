@@ -5217,13 +5217,19 @@
         if (suddenDeath || !biomeZones.length) return;
         const vh = Math.max(VIEW_HEIGHT, _viewWorldH);
         // cameraY is the centre of the view. Balls can sit up to 1.5 view
-        // heights above it before respawning and ~2.1 below, so this band
+        // heights above it before respawning and ~2.1 below, so the wake band
         // covers every ball with margin and wakes zones well before arrival.
-        const top = cameraY - vh * 2.5;
-        const bottom = cameraY + vh * 3;
+        // A zone is only parked once it is a further view height outside that
+        // band; without the gap a leader bouncing on the edge flipped a zone
+        // in and out every frame.
+        const wakeTop = cameraY - vh * 2.5;
+        const wakeBottom = cameraY + vh * 3;
+        const parkTop = cameraY - vh * 3.5;
+        const parkBottom = cameraY + vh * 4;
         for (let z = 0; z < biomeZones.length; z++) {
           const zone = biomeZones[z];
-          const near = zone.endY > top && zone.startY < bottom;
+          const near = zone.endY > wakeTop && zone.startY < wakeBottom;
+          const far = zone.endY < parkTop || zone.startY > parkBottom;
           if (near && !zoneLive[z]) {
             const parked = zoneDormant[z] || [];
             if (parked.length) {
@@ -5232,17 +5238,26 @@
             }
             zoneDormant[z] = null;
             zoneLive[z] = true;
-          } else if (!near && zoneLive[z]) {
+          } else if (far && zoneLive[z]) {
             // Includes anything spawned mid-race and stamped with this zone
             // (debris, fragments), so a zone comes back exactly as it left.
             // Except antibodies stuck to a racer: they belong to the ball now
             // ("permanently stuck, never detach") and travel with it, so
             // parking them with their old zone would peel them off mid-race.
+            // Bodies destroyed mid-race (a shattered tetromino, an exploded
+            // mine) are taken out of the world but left in levelObstacles.
+            // Parking them would put them back on wake-up — a shattered
+            // tetromino is solid and bouncy but no longer drawn, so it came
+            // back as an invisible wall. Drop them instead.
+            const inWorld = new Set(world.bodies);
             const parked = [];
             const keep = [];
             for (const o of levelObstacles) {
-              const ownZone = o._biomeStartY === zone.startY && !o.stuck;
-              (ownZone ? parked : keep).push(o);
+              if (o._biomeStartY !== zone.startY || o.stuck) {
+                keep.push(o);
+              } else if (inWorld.has(o) && !o.tetBroken && !o.exploded) {
+                parked.push(o);
+              }
             }
             levelObstacles = keep;
             if (parked.length) Matter.World.remove(world, parked);
