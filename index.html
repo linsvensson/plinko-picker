@@ -1089,6 +1089,15 @@
       let targetDuration = 0;
       let finishLineBody;
       let levelObstacles = [];
+      // Zone streaming state (see streamZones). zoneDormant[z] holds a zone's
+      // bodies while they are parked outside the physics world.
+      let zoneDormant = [];
+      let zoneLive = [];
+      // World-space height of the visible view, published by renderLoop each
+      // frame so physics-side code can tell what is actually on screen.
+      let _viewWorldH = 0;
+      // Bubble orbs among the live obstacles, built lazily once per physics step.
+      let _bubbleOrbs = null;
       let suddenDeath = false;
       let sprintStartTime = 0;
       // Final sprint length in REAL seconds. Driven by wall clock rather than a
@@ -2601,6 +2610,7 @@
 
         initPhysics();
         generateLevel(finishY);
+        initZoneStreaming();
         spawnCharacters();
 
         startGameMusic();
@@ -2669,6 +2679,7 @@
           if (!gameActive || suddenDeath) return;
 
           // Reset per-frame SFX counter
+          _bubbleOrbs = null;
           sfxThisFrame = 0;
 
           // ── Weather system ──
@@ -2926,8 +2937,13 @@
               } else if (charBiome.type === "bubble") {
                 // Check if ball is inside any bubble
                 let insideBubble = false;
-                levelObstacles.forEach((obs) => {
-                  if (obs.label !== "bubble-orb") return;
+                // Every ball here used to scan the whole obstacle list for
+                // bubbles, every step: racers x obstacles. Filter once per step.
+                if (!_bubbleOrbs)
+                  _bubbleOrbs = levelObstacles.filter(
+                    (o) => o.label === "bubble-orb",
+                  );
+                _bubbleOrbs.forEach((obs) => {
                   const d = Math.hypot(
                     c.body.position.x - obs.position.x,
                     c.body.position.y - obs.position.y,
@@ -3373,9 +3389,16 @@
                 obs.orbitBhY + Math.sin(obs.orbitAngle) * obs.orbitR * 0.55;
               Matter.Body.setPosition(obs, { x: newX, y: newY });
               Matter.Body.setAngle(obs, obs.orbitAngle * 1.4);
-              // Check collision with characters — only every other frame
-              if (frameCount % 2 !== 0) return;
+              // Check collision with characters — only every other frame.
+              // Fragments are debris: they orbit but never break again.
+              // They used to be ordinary unbroken asteroids, so every touch
+              // split them into 3–5 more with no size floor; a 40-racer field
+              // grew the world from ~200 to 1,600+ bodies in ten seconds.
+              if (frameCount % 2 !== 0 || obs.isFragment) return;
               _activeBalls.forEach((c) => {
+                // Without this, an asteroid touched by several racers in the
+                // same step split once per racer.
+                if (obs.broken) return;
                 const d = Math.hypot(
                   c.body.position.x - obs.position.x,
                   c.body.position.y - obs.position.y,
@@ -3408,6 +3431,9 @@
                       obs.orbitSpeed * (1.2 + Math.random() * 0.8);
                     frag.asteroidR = fR;
                     frag.broken = false;
+                    frag.isFragment = true;
+                    frag._biomeStartY = obs._biomeStartY;
+                    frag._biomeEndY = obs._biomeEndY;
                     Matter.World.add(world, frag);
                     levelObstacles.push(frag);
                   }
@@ -3422,6 +3448,11 @@
                     y: -10,
                   });
                   SFX_PLAY(() => SFX.playNoise(0.2, 0.18));
+                  // The shattered parent used to stay in the world forever,
+                  // frozen and still drawn where it broke.
+                  Matter.World.remove(world, obs);
+                  const bi = levelObstacles.indexOf(obs);
+                  if (bi !== -1) levelObstacles.splice(bi, 1);
                 }
               });
             } else if (obs.label === "enemy") {
@@ -4595,7 +4626,22 @@
                 }
               });
             } else if (obs.label === "pre-rocket") {
-              // Pre-spawned rocket missile — moves across zone and hits balls
+              // Pre-spawned rocket missile — moves across zone and hits balls.
+              // Its 3-5s life used to start ticking at race start for every
+              // rocket in the course, so by the time racers reached any zone
+              // after the first, its rockets had long expired and been deleted
+              // (64% of a rocket course gone within 30s). Hold each rocket
+              // asleep until it reaches the bottom edge of the view.
+              if (!obs.rocketArmed) {
+                const viewBottom =
+                  cameraY + Math.max(VIEW_HEIGHT, _viewWorldH) / 2 + 150;
+                if (obs.position.y > viewBottom) {
+                  if (!obs.isSleeping) Matter.Sleeping.set(obs, true);
+                  return;
+                }
+                obs.rocketArmed = true;
+                Matter.Sleeping.set(obs, false);
+              }
               if (!obs.isStatic) {
                 obs.preRocketVy = (obs.preRocketVy || 0) + 0.1; // slight gravity
                 Matter.Body.setPosition(obs, {
@@ -5146,6 +5192,63 @@
           // Fill this zone with thematic obstacles
           generateBiomeObstacles(biomeType, currentY, endY);
           currentY = endY;
+        }
+      }
+
+      // ── Zone streaming ────────────────────────────────────
+      // The course is generated up front, one 5000px biome zone per ~12s of
+      // timer, and every obstacle used to sit in the physics world for the whole
+      // race. Matter sweeps for collisions along x only, and in a tall course
+      // every obstacle shares the same x range, so the broadphase cost grew
+      // roughly with bodies squared; the per-frame obstacle logic also ran over
+      // the entire course. A 120s frogger course was ~1,800 bodies, all
+      // simulated from the first frame — which is why races lagged past ~30s
+      // and only on certain courses. Now only zones near the camera live in the
+      // world; the rest are parked and swapped in as the camera approaches.
+      function initZoneStreaming() {
+        zoneDormant = biomeZones.map(() => null);
+        zoneLive = biomeZones.map(() => true); // generateLevel added everything
+        streamZones();
+      }
+
+      function streamZones() {
+        // During the final sprint every obstacle has just been exploded on
+        // purpose; never bring zones back mid-sprint.
+        if (suddenDeath || !biomeZones.length) return;
+        const vh = Math.max(VIEW_HEIGHT, _viewWorldH);
+        // cameraY is the centre of the view. Balls can sit up to 1.5 view
+        // heights above it before respawning and ~2.1 below, so this band
+        // covers every ball with margin and wakes zones well before arrival.
+        const top = cameraY - vh * 2.5;
+        const bottom = cameraY + vh * 3;
+        for (let z = 0; z < biomeZones.length; z++) {
+          const zone = biomeZones[z];
+          const near = zone.endY > top && zone.startY < bottom;
+          if (near && !zoneLive[z]) {
+            const parked = zoneDormant[z] || [];
+            if (parked.length) {
+              Matter.World.add(world, parked);
+              levelObstacles.push(...parked);
+            }
+            zoneDormant[z] = null;
+            zoneLive[z] = true;
+          } else if (!near && zoneLive[z]) {
+            // Includes anything spawned mid-race and stamped with this zone
+            // (debris, fragments), so a zone comes back exactly as it left.
+            // Except antibodies stuck to a racer: they belong to the ball now
+            // ("permanently stuck, never detach") and travel with it, so
+            // parking them with their old zone would peel them off mid-race.
+            const parked = [];
+            const keep = [];
+            for (const o of levelObstacles) {
+              const ownZone = o._biomeStartY === zone.startY && !o.stuck;
+              (ownZone ? parked : keep).push(o);
+            }
+            levelObstacles = keep;
+            if (parked.length) Matter.World.remove(world, parked);
+            zoneDormant[z] = parked;
+            zoneLive[z] = false;
+          }
         }
       }
 
@@ -9694,8 +9797,21 @@
             worldRotation = 0;
           }
 
-          // Explode ALL obstacles with particle bursts, then remove them
+          // Explode the obstacles on screen with particle bursts, then remove
+          // them all. This used to burst every obstacle in the course, pushing
+          // particles directly past MAX_PARTICLES: ~14,000 in one frame on a
+          // long course, right as the final sprint began. Off-screen bursts
+          // were never seen anyway.
+          const burstHalfH = Math.max(VIEW_HEIGHT, _viewWorldH) / 2 + 100;
+          const BURST_CAP = MAX_PARTICLES * 4;
           levelObstacles.forEach((obs) => {
+            const burst =
+              Math.abs(obs.position.y - cameraY) < burstHalfH &&
+              particles.length < BURST_CAP;
+            if (!burst) {
+              Matter.World.remove(world, obs);
+              return;
+            }
             const col = obs.renderColor || "#ffffff";
             for (let b = 0; b < 8; b++) {
               particles.push({
@@ -9818,6 +9934,7 @@
         if (baseScale > 1.5) baseScale = 1.5;
         let finalScale = baseScale * currentZoom;
         let effectiveViewHeight = canvas.height / finalScale;
+        _viewWorldH = effectiveViewHeight;
 
         let targetCameraY;
         if (suddenDeath && sprintLaunched) {
@@ -9836,6 +9953,7 @@
         // Sprint: instant snap (1.0) — leader must never leave viewport
         const camSpeed = suddenDeath && sprintLaunched ? 1.0 : 0.25;
         cameraY += (targetCameraY - cameraY) * camSpeed;
+        streamZones();
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = currentBgColor;
@@ -11489,6 +11607,8 @@
         fruitNinjaFruits = [];
         fruitSlashTrail = [];
         fruitSlashActive = false;
+        zoneDormant = [];
+        zoneLive = [];
         biomeZones = [];
         levelObstacles = [];
         characters = [];
