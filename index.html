@@ -1067,6 +1067,7 @@
       let finalNames = [];
       let finalWeights = []; // index-aligned with finalNames
       let finalTwitch = []; // index-aligned with finalNames ("" = no handle)
+      let maxRosterWeight = 1; // highest weight in the current race (see respawnCharacter)
       let gameActive = false;
 
       // Physics & Render
@@ -2230,10 +2231,14 @@
       const WEIGHT_MIN = 0.1;
       const WEIGHT_MAX = 10;
       const BASE_FRICTION_AIR = 0.015;
-      // How hard weight tilts the respawn rubber-band (see respawnCharacter).
-      // This is the one lever that is both decisive and invisible: respawns fire
-      // 2-6 times per ball per race, always off-screen, and never for the leader.
-      const RESPAWN_WEIGHT_BIAS = 0.3;
+      // How hard weight tilts the respawn rubber-band (see respawnCharacter):
+      // view heights of extra respawn distance per unit of ln(weight). This is
+      // the one lever that is both decisive and invisible: respawns fire 2-6
+      // times per ball per race, always off-screen, and never for the leader.
+      // Measured over 100 races (Ava, Ben x0.5, Cy x2, Dee, Eli; ideal odds
+      // 36/18/9%): x2 30%, x1 21%, x0.5 7%. At 0.3 it was 27/20/13. Much higher
+      // pushes low weights into the 1.2-view-height cap and stops helping.
+      const RESPAWN_WEIGHT_BIAS = 0.5;
       // Trailing "x<number>" / "×<number>". The x must start a word: without
       // that boundary this also matched the x inside a name, so "Alex 2" parsed
       // as "Ale" at weight 2 — and "Name N" is exactly how the duplicate
@@ -6210,6 +6215,8 @@
           Matter.World.add(world, body);
         });
 
+        maxRosterWeight = Math.max(1e-6, ...characters.map((c) => c.weight || 1));
+
         // Deliberately not awaited: the race starts now and avatars swap in as
         // they arrive. Catch here so a network failure cannot surface as an
         // unhandled rejection.
@@ -9512,19 +9519,27 @@
       }
 
       function respawnCharacter(c) {
-        // Always respawn near the top of the current visible viewport.
-        // Roster weight shifts how far back that is: a favoured ball is put
-        // closer to the leader, a weighted-down one further behind. The clamp
-        // keeps the ball above the screen (never a visible teleport) and inside
-        // the 1.5-viewport window that would immediately respawn it again.
+        // Put the ball back above the top of the screen, behind the pack.
+        // cameraY is the centre of the view, so the visible top edge sits half
+        // the visible height above it. This used to be a fixed 0.4 view
+        // heights above the centre, which on a laptop-width window is already
+        // inside the view, and a favoured (x2) ball landed ~190px further
+        // inside still — visibly popping in, with a particle burst.
+        //
+        // Weighting: the most favoured ball in this race respawns closest,
+        // just above the top edge; every other ball is spaced further back by
+        // RESPAWN_WEIGHT_BIAS view heights per unit of ln(weight) — the same
+        // spacing as before, so the gap between weights is unchanged.
         const w = c.weight === undefined ? 1 : c.weight;
-        const back = Math.max(
-          0.15,
-          Math.min(1.2, 0.4 - RESPAWN_WEIGHT_BIAS * Math.log(w)),
-        );
+        const viewHalf = (_viewWorldH || VIEW_HEIGHT) / 2;
+        const closest = Math.max(VIEW_HEIGHT * 0.4, viewHalf + c.radius * 2);
+        const back =
+          RESPAWN_WEIGHT_BIAS * Math.log(maxRosterWeight / w) * VIEW_HEIGHT;
+        // Stay inside the 1.5-view-height window that would respawn it again.
+        const above = Math.min(closest + back, VIEW_HEIGHT * 1.2);
         Matter.Body.setPosition(c.body, {
           x: 100 + Math.random() * (VIEW_WIDTH - 200),
-          y: cameraY - VIEW_HEIGHT * back,
+          y: cameraY - above,
         });
         Matter.Body.setVelocity(c.body, {
           x: (Math.random() - 0.5) * 8,
