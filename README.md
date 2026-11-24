@@ -2,7 +2,7 @@
 
 > A chaotic, physics-based, and ridiculously fun way to pick students at random — great for **teachers**, **presenters**, and **events**.
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-Visit%20Site-A6E22E?style=for-the-badge&logo=github)](https://jcykung.github.io/plinko-picker)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Visit%20Site-A6E22E?style=for-the-badge&logo=github)](https://linsvensson.github.io/plinko-picker/)
 [![License](https://img.shields.io/badge/License-MIT-66D9EF?style=for-the-badge)](LICENSE)
 [![Dependencies](https://img.shields.io/badge/Dependencies-Matter.js-AE81FF?style=for-the-badge)]()
 
