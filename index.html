@@ -6125,10 +6125,8 @@
         // racers the balls spawned inside one another — 10x overlapped at 300,
         // leaving the solver thousands of simultaneous contacts to untangle the
         // instant the platform broke. Wrapping into rows means nothing starts
-        // interpenetrated. The pile still settles and compresses under gravity
-        // during the 2.2s hold, so contacts do not reach zero, but resting
-        // contacts are far cheaper than deep overlap: measured 576 -> 269 at
-        // 150 racers and 2527 -> 842 at 300.
+        // interpenetrated, and the balls are held asleep until the platform
+        // breaks so the rows cannot settle into each other either.
         const laneW = VIEW_WIDTH - 160;
         const perRow = Math.max(1, Math.min(n, Math.floor(laneW / (ballR * 2 + 4))));
         const spacing = Math.min(60, laneW / perRow);
@@ -6217,6 +6215,13 @@
 
         maxRosterWeight = Math.max(1e-6, ...characters.map((c) => c.weight || 1));
 
+        // Hold every ball asleep, exactly where it spawned, until the platform
+        // breaks. Past one row the stacked rows used to settle onto each other
+        // for the whole 2.2s hold: 2,968 ball-on-ball contacts at 300 racers,
+        // with balls visibly sunk ~10px into their neighbours. Rows spawn 4px
+        // apart, so frozen they never touch; on release they all fall at once.
+        characters.forEach((c) => Matter.Sleeping.set(c.body, true));
+
         // Deliberately not awaited: the race starts now and avatars swap in as
         // they arrive. Catch here so a network failure cannot surface as an
         // unhandled rejection.
@@ -6234,6 +6239,8 @@
         introPlatformBroken = true;
         introPhase = "breaking";
         introBreakTime = Date.now();
+        // Release the racers held asleep since spawn (see spawnCharacters).
+        characters.forEach((c) => Matter.Sleeping.set(c.body, false));
 
         // Remove physics bodies and spawn visual debris chunks
         introPlatformBodies.forEach((seg, i) => {
